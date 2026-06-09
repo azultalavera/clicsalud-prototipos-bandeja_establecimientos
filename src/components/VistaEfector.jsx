@@ -33,16 +33,30 @@ import {
   MoreVert as MoreVertIcon,
 } from "@mui/icons-material";
 import { useData } from "../context/DataContext";
+import DetalleEstablecimientoDialog from "./DetalleEstablecimientoDialog";
+import { useLocation } from "react-router-dom";
 
-// ─── Estado chip ──────────────────────────────────────────────────────────────
-const getEstadoColor = (value) => {
+// ─── Estado color ─────────────────────────────────────────────────────────────
+const getEstadoEstablecimientoColor = (value) => {
   const v = String(value || "").toUpperCase();
   if (v.includes("HABILITADO") && !v.includes("NO")) return "#2e7d32";
   if (v.includes("VENCIDO")) return "#d32f2f";
   if (v.includes("VENCER")) return "#f57f17";
-  if (v.includes("MODIF")) return "#6a1b9a";
   if (v.includes("NO VIGENTE") || v.includes("NOVIGENTE")) return "#004582";
+  if (v.includes("MODIF")) return "#6a1b9a";
+  if (v.includes("RENOV")) return "#005596";
   return "#005596";
+};
+
+const getEstadoTramiteColor = (value) => {
+  if (!value || value === "-") return "#9e9e9e";
+  const v = String(value).toUpperCase();
+  if (v.includes("ACEPTADO")) return "#2e7d32";
+  if (v.includes("ANÁLISIS") || v.includes("ANALISIS")) return "#e65100";
+  if (v.includes("RESPUESTA")) return "#c62828";
+  if (v.includes("MODIFICACIÓN")) return "#6a1b9a";
+  if (v.includes("RENOVACIÓN")) return "#005596";
+  return "#1565c0";
 };
 
 // ─── Acciones contextuales según estado ───────────────────────────────────────
@@ -53,7 +67,7 @@ const ACCIONES_POR_ESTADO = {
     { label: "Historial", icon: <HistoryIcon fontSize="small" />, color: "rgb(46, 125, 50)" },
   ],
   "HABILITADO": [
-    { label: "Visualizar", icon: <VisibilityIcon fontSize="small" />, color: "rgb(254, 222, 39)", primary: true },
+    { label: "Visualizar", icon: <VisibilityIcon fontSize="small" />, color: "rgb(254, 222, 39)" },
     { label: "Descargar", icon: <CloudDownloadIcon fontSize="small" />, color: "rgb(9, 155, 227)" },
     { label: "Ver Resolución", icon: <DescriptionIcon fontSize="small" />, color: "rgb(46, 125, 50)" },
     { label: "Certificado", icon: <AssignmentIcon fontSize="small" />, color: "rgb(175, 65, 120)" },
@@ -71,22 +85,22 @@ const ACCIONES_POR_ESTADO = {
     { label: "Historial", icon: <HistoryIcon fontSize="small" />, color: "rgb(46, 125, 50)" },
   ],
   "NO VIGENTE": [
-    { label: "Visualizar", icon: <VisibilityIcon fontSize="small" />, color: "rgb(254, 222, 39)", primary: true },
+    { label: "Visualizar", icon: <VisibilityIcon fontSize="small" />, color: "rgb(254, 222, 39)" },
     { label: "Ver Resolución", icon: <DescriptionIcon fontSize="small" />, color: "rgb(46, 125, 50)" },
     { label: "Historial", icon: <HistoryIcon fontSize="small" />, color: "rgb(46, 125, 50)" },
   ],
 };
 
 const DEFAULT_ACCIONES = [
-  { label: "Visualizar", icon: <VisibilityIcon fontSize="small" />, color: "rgb(254, 222, 39)", primary: true },
+  { label: "Visualizar", icon: <VisibilityIcon fontSize="small" />, color: "rgb(254, 222, 39)" },
   { label: "Historial", icon: <HistoryIcon fontSize="small" />, color: "rgb(46, 125, 50)" },
 ];
 
-const AccionesCell = ({ row }) => {
+const AccionesCell = ({ row, onView }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
-  const estado = row.estado || row.ESTADO || row.Estado || "";
+  const estado = getField(row, "estadoEstablecimiento", "ESTADO_ESTABLECIMIENTO") || "";
   const accionesEstado = ACCIONES_POR_ESTADO[estado.toUpperCase()] || DEFAULT_ACCIONES;
   const primaryAction = accionesEstado.find((a) => a.primary);
   const secondaryActions = accionesEstado.filter((a) => !a.primary);
@@ -96,7 +110,7 @@ const AccionesCell = ({ row }) => {
       {primaryAction && (
         <Tooltip title={primaryAction.label} arrow>
           <IconButton size="small" sx={{ color: primaryAction.color }}
-            onClick={() => alert(`${primaryAction.label}: ${row.nombre || row.NOMBRE || row.id}`)}>
+            onClick={() => { if (primaryAction.label === "Visualizar" && onView) { onView(row); } else { alert(`${primaryAction.label}: ${row.nombre || row.NOMBRE || row.id}`); } }}>
             {primaryAction.icon}
           </IconButton>
         </Tooltip>
@@ -118,7 +132,7 @@ const AccionesCell = ({ row }) => {
           >
             {secondaryActions.map((accion) => (
               <MenuItem key={accion.label}
-                onClick={() => { setAnchorEl(null); alert(`${accion.label}: ${row.nombre || row.NOMBRE || row.id}`); }}
+                onClick={() => { setAnchorEl(null); if (accion.label === "Visualizar" && onView) { onView(row); } else { alert(`${accion.label}: ${row.nombre || row.NOMBRE || row.id}`); } }}
                 sx={{ py: 1, fontSize: "0.875rem", "&:hover": { bgcolor: "#f8fafc" } }}>
                 <ListItemIcon sx={{ color: accion.color, minWidth: 32 }}>{accion.icon}</ListItemIcon>
                 <ListItemText primary={accion.label} />
@@ -140,30 +154,22 @@ const getField = (row, ...keys) => {
   return "";
 };
 
-// ─── Vista Efector / Agente ───────────────────────────────────────────────────
+// ─── Vista Efector ───────────────────────────────────────────────────
 const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
+  const location = useLocation();
+  const [viewData, setViewData] = useState(null);
+  
+  const isTramites = location.pathname.includes("tramites");
   const { establecimientos } = useData();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [filters, setFilters] = useState({
-    nombre: "",
-    expediente: "",
-    cuit: "",
-    tipologia: "",
-    tipoTramite: "",
-    departamento: "",
-    localidad: "",
-    estado: "",
-    fechaDesde: "",
-    fechaHasta: "",
+    nombre: "", expediente: "", cuit: "", tipologia: "", tipoTramite: "", departamento: "", localidad: "", estadoTramite: "", estadoEstablecimiento: "", fechaDesde: "", fechaHasta: "",
   });
 
-  const handleFilterChange = (e) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
-
+  const handleFilterChange = (e) => setFilters({ ...filters, [e.target.name]: e.target.value });
   const clearFilters = () => {
-    setFilters({ nombre: "", expediente: "", cuit: "", tipologia: "", tipoTramite: "", departamento: "", localidad: "", estado: "", fechaDesde: "", fechaHasta: "" });
+    setFilters({ nombre: "", expediente: "", cuit: "", tipologia: "", tipoTramite: "", departamento: "", localidad: "", estadoTramite: "", estadoEstablecimiento: "", fechaDesde: "", fechaHasta: "" });
     setPage(0);
   };
 
@@ -175,8 +181,8 @@ const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
     const tipoTramite = String(getField(est, "tipoTramite", "TIPOTRAMITE", "Tipo Tramite", "TipoTramite", "tipo_tramite"));
     const departamento = String(getField(est, "departamento", "DEPARTAMENTO", "Departamento"));
     const localidad = String(getField(est, "localidad", "LOCALIDAD", "Localidad")).toLowerCase();
-    const estado = String(getField(est, "estado", "ESTADO", "Estado"));
-    const fecha = String(getField(est, "fechaCreacion", "fecha_creacion", "Fecha", "FECHA", "fechaingreso", "Fecha Ingreso"));
+    const estadoTramite = String(getField(est, "estadoTramite", "ESTADO_TRAMITE", "EstadoTramite"));
+    const estadoEstablecimiento = String(getField(est, "estadoEstablecimiento", "ESTADO_ESTABLECIMIENTO", "EstadoEstablecimiento", "estado"));
 
     if (filters.nombre && !nombre.includes(filters.nombre.toLowerCase())) return false;
     if (filters.expediente && !expediente.includes(filters.expediente.toLowerCase())) return false;
@@ -185,7 +191,8 @@ const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
     if (filters.tipoTramite && tipoTramite !== filters.tipoTramite) return false;
     if (filters.departamento && departamento !== filters.departamento) return false;
     if (filters.localidad && !localidad.includes(filters.localidad.toLowerCase())) return false;
-    if (filters.estado && estado !== filters.estado) return false;
+    if (filters.estadoTramite && !estadoTramite.toUpperCase().includes(filters.estadoTramite.toUpperCase())) return false;
+    if (filters.estadoEstablecimiento && estadoEstablecimiento !== filters.estadoEstablecimiento) return false;
     return true;
   });
 
@@ -197,10 +204,8 @@ const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
       {/* === FILTROS === */}
       <Paper elevation={0} sx={{ mb: 3, borderRadius: "12px", border: "1px solid #e2e8f0" }}>
         <Typography variant="h4" sx={{ fontWeight: 900, color: "#005596", letterSpacing: -1, p: 2 }}>
-          {titulo}
+          {isTramites ? "Trámites en curso" : titulo}
         </Typography>
-
-
 
         <Box sx={{ p: 3 }}>
           {/* Fila 1: N° Expediente · Nombre · CUIT */}
@@ -215,13 +220,21 @@ const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
 
           {/* Fila 2: Estado · Fecha desde · Tipología */}
           <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "24px 32px", mb: 3 }}>
-            <TextField fullWidth variant="standard" select label="Estado" name="estado"
-              value={filters.estado} onChange={handleFilterChange}>
+            <TextField fullWidth variant="standard" select label="Estado del Trámite" name="estadoTramite"
+              value={filters.estadoTramite} onChange={handleFilterChange}>
               <MenuItem value="">Todos los estados</MenuItem>
-              <MenuItem value="EN PROCESO DE MODIFICACIÓN">En Proceso de Modificación</MenuItem>
               <MenuItem value="HABILITADO">Habilitado</MenuItem>
+              <MenuItem value="EN PROCESO DE MODIFICACIÓN">En Proceso Modificación</MenuItem>
               <MenuItem value="PRÓXIMO A VENCER">Próximo a Vencer</MenuItem>
+              <MenuItem value="EN PROCESO DE RENOVACIÓN">En Proceso Renovación</MenuItem>
               <MenuItem value="VENCIDO">Vencido</MenuItem>
+              <MenuItem value="NO VIGENTE">No Vigente</MenuItem>
+            </TextField>
+            <TextField fullWidth variant="standard" select label="Estado Establecimiento" name="estadoEstablecimiento"
+              value={filters.estadoEstablecimiento} onChange={handleFilterChange}>
+              <MenuItem value="">Todos</MenuItem>
+              <MenuItem value="HABILITADO">Habilitado</MenuItem>
+              <MenuItem value="NO HABILITADO">No Habilitado</MenuItem>
               <MenuItem value="NO VIGENTE">No Vigente</MenuItem>
             </TextField>
             <TextField fullWidth variant="standard" label="Fecha desde" name="fechaDesde" 
@@ -229,6 +242,10 @@ const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
               onFocus={(e) => (e.target.type = "date")}
               onBlur={(e) => { if (!filters.fechaDesde) e.target.type = "text"; }}
               slotProps={{ inputLabel: { shrink: true } }} value={filters.fechaDesde} onChange={handleFilterChange} placeholder="dd/mm/aaaa" />
+          </Box>
+
+          {/* Fila 3: Tipo de Trámite · Tipología · Departamento */}
+          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "24px 32px" }}>
             <TextField fullWidth variant="standard" select label="Tipología" name="tipologia"
               value={filters.tipologia} onChange={handleFilterChange}>
               <MenuItem value="">Todas las tipologías</MenuItem>
@@ -236,17 +253,6 @@ const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
               <MenuItem value="ESTABLECIMIENTOS GERIÁTRICOS">Establecimientos Geriátricos</MenuItem>
               <MenuItem value="CENTRO DE SALUD AMBULATORIO">Centro de Salud Ambulatorio</MenuItem>
               <MenuItem value="CENTRO DE CIRUGÍA AMBULATORIA">Centro de Cirugía Ambulatoria</MenuItem>
-            </TextField>
-          </Box>
-
-          {/* Fila 3: Tipo de Trámite · Departamento · Localidad */}
-          <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "24px 32px" }}>
-            <TextField fullWidth variant="standard" select label="Tipo de Trámite" name="tipoTramite"
-              value={filters.tipoTramite} onChange={handleFilterChange}>
-              <MenuItem value="">Todos</MenuItem>
-              <MenuItem value="Habilitación">Habilitación</MenuItem>
-              <MenuItem value="Renovación">Renovación</MenuItem>
-              <MenuItem value="Modificación">Modificación</MenuItem>
             </TextField>
             <TextField fullWidth variant="standard" select label="Departamento" name="departamento"
               value={filters.departamento} onChange={handleFilterChange}>
@@ -275,102 +281,163 @@ const VistaEfector = ({ titulo = "Mis Establecimientos" }) => {
         </Box>
       </Paper>
 
-      {/* === TABLA === */}
       <Paper elevation={0} sx={{ borderRadius: "8px", border: "1px solid #e0e0e0", overflow: "hidden" }}>
-          <TableContainer>
-            <Table sx={{ minWidth: 1000 }} size="medium">
-              <TableHead>
-                <TableRow sx={{ bgcolor: "#005596" }}>
-                  <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>TIPOLOGÍA</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ESTABLECIMIENTO</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>EXPEDIENTE</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>CUIT</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>UBICACIÓN</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>TITULARIDAD</TableCell>
-                  <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ESTADO</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ACCIONES</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => {
-                  const estadoVal = getField(row, "estado", "ESTADO", "Estado");
-                  const estadoColor = row.color || getEstadoColor(estadoVal);
-                  return (
-                    <TableRow key={row.id ?? idx} hover sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: "#333" }}>
-                          {getField(row, "tipologia", "TIPOLOGÍA", "Tipologia", "TIPOLOGIA") || "—"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
-                          {getField(row, "nombre", "NOMBRE", "Nombre", "ESTABLECIMIENTO", "Establecimiento", "establecimiento") || "—"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
-                          {getField(row, "expediente", "EXPEDIENTE", "Expediente") || "—"}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: "#777" }}>
-                          Sol: {getField(row, "nSolicitud", "nSolicitud", "N° Solicitud", "solicitud") || "—"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: "#333" }}>
-                          {getField(row, "cuit", "CUIT", "Cuit") || "—"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: "#333" }}>
-                          {getField(row, "localidad", "LOCALIDAD", "Localidad", "ubicacion", "UBICACION", "Ubicacion", "Ubicación", "UBICACIÓN") || "—"}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: "#777" }}>
-                          {getField(row, "departamento", "DEPARTAMENTO", "Departamento")}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ color: "#333" }}>
-                          {getField(row, "titularidad", "TITULARIDAD", "Titularidad") || "—"}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={estadoVal || "—"}
-                          size="small"
-                          sx={{
-                            fontWeight: "bold", fontSize: "0.7rem",
-                            bgcolor: `${estadoColor}15`, color: estadoColor,
-                            borderRadius: "4px", border: `1px solid ${estadoColor}30`,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <AccionesCell row={row} />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {filteredData.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                      <Typography variant="body1" color="text.secondary">No se encontraron resultados</Typography>
+        <TableContainer>
+          <Table sx={{ minWidth: 1000 }} size="medium">
+            <TableHead>
+              <TableRow sx={{ bgcolor: "#005596" }}>
+                {!isTramites ? (
+                  <>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ESTABLECIMIENTO</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>EXPEDIENTE</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>CUIT</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ESTADO ESTAB.</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ESTADO TRÁMITE</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>TIPOLOGÍA</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>UBICACIÓN</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>TITULARIDAD</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>TIPO DE TRÁMITE</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>TIPOLOGÍA</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>FECHA INICIO</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>FECHA ÚLTIMO CAMBIO DE ESTADO</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ESTADO DEL TRÁMITE</TableCell>
+                  </>
+                )}
+                <TableCell align="center" sx={{ fontWeight: "bold", color: "white", fontSize: "0.75rem" }}>ACCIONES</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => {
+                const estadoTramiteVal = getField(row, "estadoTramite", "ESTADO_TRAMITE", "EstadoTramite") || "—";
+                const estadoEstablecimientoVal = getField(row, "estadoEstablecimiento", "ESTADO_ESTABLECIMIENTO", "EstadoEstablecimiento", "estado") || "—";
+                const colorTramite = getEstadoTramiteColor(estadoTramiteVal);
+                const colorEstablecimiento = getEstadoEstablecimientoColor(estadoEstablecimientoVal);
+                
+                return (
+                  <TableRow key={row.id ?? idx} hover sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
+                    {!isTramites ? (
+                      <>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                            {getField(row, "nombre", "NOMBRE", "Nombre", "ESTABLECIMIENTO", "Establecimiento", "establecimiento") || "—"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "#1a1a1a" }}>
+                            {getField(row, "expediente", "EXPEDIENTE", "Expediente") || "—"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: "#333" }}>
+                            {getField(row, "cuit", "CUIT", "Cuit") || "—"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={estadoEstablecimientoVal}
+                            size="small"
+                            sx={{
+                              fontWeight: "bold", fontSize: "0.7rem",
+                              bgcolor: `${colorEstablecimiento}15`, color: colorEstablecimiento,
+                              borderRadius: "4px", border: `1px solid ${colorEstablecimiento}30`,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={estadoTramiteVal}
+                            size="small"
+                            sx={{
+                              fontWeight: "bold", fontSize: "0.7rem",
+                              bgcolor: `${colorTramite}15`, color: colorTramite,
+                              borderRadius: "4px", border: `1px solid ${colorTramite}30`,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: "#333" }}>
+                            {getField(row, "tipologia", "TIPOLOGÍA", "Tipologia", "TIPOLOGIA") || "—"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: "#333" }}>
+                            {getField(row, "localidad", "LOCALIDAD", "Localidad", "ubicacion", "UBICACION", "Ubicacion", "Ubicación", "UBICACIÓN") || "—"}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: "#777" }}>
+                            {getField(row, "departamento", "DEPARTAMENTO", "Departamento")}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: "#333" }}>
+                            {getField(row, "titularidad", "TITULARIDAD", "Titularidad") || "—"}
+                          </Typography>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: "#1a1a1a", textTransform: "uppercase" }}>
+                            {getField(row, "tipoTramite", "Tipo de Trámite") || "HABILITACIÓN"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: "#333" }}>
+                            {getField(row, "tipologia", "TIPOLOGÍA", "Tipologia", "TIPOLOGIA") || "—"}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: "#333" }}>2/6/2026</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: "#333" }}>2/6/2026</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={estadoTramiteVal}
+                            size="small"
+                            sx={{
+                              fontWeight: "bold", fontSize: "0.7rem",
+                              bgcolor: `${colorTramite}15`, color: colorTramite,
+                              borderRadius: "4px", border: `1px solid ${colorTramite}30`,
+                            }}
+                          />
+                        </TableCell>
+                      </>
+                    )}
+                    <TableCell align="center">
+                      <AccionesCell row={row} onView={(r) => setViewData(r)} />
                     </TableCell>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25]}
-            component="div"
-            count={filteredData.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={handleChangePage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage="Filas por página"
-          />
-        </Paper>
+                );
+              })}
+              {filteredData.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={isTramites ? 6 : 9} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="text.secondary">No se encontraron resultados</Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={filteredData.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Filas por página"
+        />
+      </Paper>
+
+      {/* === DIÁLOGO DETALLE ESTABLECIMIENTO === */}
+      <DetalleEstablecimientoDialog open={Boolean(viewData)} data={viewData} onClose={() => setViewData(null)} />
+
     </Box>
   );
 };

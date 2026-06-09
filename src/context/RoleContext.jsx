@@ -4,32 +4,48 @@ const RoleContext = createContext(null);
 
 export const ROLES = [
   {
+    id: "agente_auditoria",
+    label: "AGENTE AUDITOR",
+    color: "#005596",
+    description: "Control y auditoría",
+    avatar: "AU",
+  },
+  {
+    id: "agente_inspector",
+    label: "AGENTE INSPECTOR",
+    color: "#005596",
+    description: "Inspecciones en terreno",
+    avatar: "AI",
+  },
+  {
+    id: "agente_protocolizador",
+    label: "AGENTE PROTOCOLIZADOR",
+    color: "#005596",
+    description: "Protocolización",
+    avatar: "AP",
+  },
+  {
+    id: "ministerio",
+    label: "AGENTE CONSULTOR",
+    color: "#005596",
+    description: "Consultas del ministerio",
+    avatar: "CO",
+  },
+  {
     id: "efector",
     label: "Efector",
     color: "#005596",
     description: "Mis establecimientos habilitados",
     avatar: "E",
-  },
-  {
-    id: "agente",
-    label: "Agente",
-    color: "#7b1fa2",
-    description: "Bandeja de establecimientos asignados",
-    avatar: "A",
-  },
-  {
-    id: "ministerio",
-    label: "Consultor Ministerio",
-    color: "#e65100",
-    description: "Todos los establecimientos del sistema",
-    avatar: "M",
+    hidden: true,
   },
   {
     id: "consultor",
-    label: "Consultor Particular",
+    label: "Consultor Externo",
     color: "#00796b",
     description: "Consulta puntual de un establecimiento",
-    avatar: "C",
+    avatar: "CE",
+    hidden: true,
   },
 ];
 

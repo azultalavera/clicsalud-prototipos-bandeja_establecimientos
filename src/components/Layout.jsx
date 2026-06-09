@@ -26,6 +26,7 @@ import {
   Notifications as NotificationsIcon,
   Check as CheckIcon,
   Person as PersonIcon,
+  AccountTree as AccountTreeIcon,
 } from "@mui/icons-material";
 import { useRole } from "../context/RoleContext";
 import fondoApp from "../assets/fondo.jpg";
@@ -208,11 +209,28 @@ const Layout = () => {
                 onClick={() => navigate(`/${roleId}/bandeja`)}
                 selected={location.pathname === `/${roleId}/bandeja`}
               >
-                <ListItemIcon sx={{ minWidth: 0, mr: "auto", justifyContent: "center", color: location.pathname === `/${roleId}/bandeja` ? "#00b0f0" : "#555" }}>
-                  <ListIcon />
-                </ListItemIcon>
+                <Tooltip title="Bandeja" placement="right" arrow>
+                  <ListItemIcon sx={{ minWidth: 0, mr: "auto", justifyContent: "center", color: location.pathname === `/${roleId}/bandeja` ? "#00b0f0" : "#555" }}>
+                    <ListIcon />
+                  </ListItemIcon>
+                </Tooltip>
               </ListItemButton>
             </ListItem>
+            {roleId === "ministerio" && (
+              <ListItem disablePadding sx={{ display: "block" }}>
+                <ListItemButton
+                  sx={{ minHeight: 48, justifyContent: "center", px: 2.5 }}
+                  onClick={() => navigate(`/${roleId}/simulador`)}
+                  selected={location.pathname === `/${roleId}/simulador`}
+                >
+                  <Tooltip title="Simulador DTE" placement="right" arrow>
+                    <ListItemIcon sx={{ minWidth: 0, mr: "auto", justifyContent: "center", color: location.pathname === `/${roleId}/simulador` ? "#00b0f0" : "#555" }}>
+                      <AccountTreeIcon />
+                    </ListItemIcon>
+                  </Tooltip>
+                </ListItemButton>
+              </ListItem>
+            )}
           </List>
         </Drawer>
 

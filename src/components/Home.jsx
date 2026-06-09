@@ -30,7 +30,8 @@ const Home = () => {
   const navigate = useNavigate();
   const { roleId } = useParams();
 
-  const cards = CARDS_BY_ROLE[roleId] || [];
+  const baseRoleId = roleId?.startsWith("agente_") ? "agente" : (roleId === "administrador" ? "ministerio" : roleId);
+  const cards = CARDS_BY_ROLE[baseRoleId] || CARDS_BY_ROLE["agente"];
 
   return (
     <Box

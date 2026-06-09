@@ -9,6 +9,8 @@ import Layout from "./components/Layout";
 import Home from "./components/Home";
 import Bandeja from "./components/Bandeja";
 import RoleSelection from "./components/RoleSelection";
+import SimuladorDTE from "./components/SimuladorDTE";
+import HistorialEstado from "./components/HistorialEstado";
 
 const theme = createTheme({
   palette: {
@@ -31,6 +33,9 @@ function App() {
             <Route path="/:roleId" element={<Layout />}>
               <Route path="home" element={<Home />} />
               <Route path="bandeja" element={<Bandeja />} />
+              <Route path="tramites" element={<Bandeja />} />
+              <Route path="simulador" element={<SimuladorDTE />} />
+              <Route path="historial/:id" element={<HistorialEstado />} />
               <Route path="*" element={
                 <Box sx={{ p: 4, textAlign: "center", mt: 4 }}>
                   <Typography variant="h5" color="text.secondary">Esta sección se encuentra en desarrollo.</Typography>
